@@ -1,0 +1,187 @@
+---
+apiVersion: kmm.sigs.x-k8s.io/v1beta1
+kind: Module
+metadata:
+  name: qcom-aic100-dev-wQAIC
+  namespace: qcom-aic-resources
+spec:
+  moduleLoader:
+    container:
+      version: "1.20.0.0"   # TODO: Config with Operator
+      modprobe:
+        moduleName: qaic
+        dirName: /opt
+        firmwarePath: /firmware
+      # TODO - regex for SUSE builds, need to pass 3rd argument to dkms_prebuild
+      kernelMappings:
+        - regexp: '^.*$'
+          # TODO any way to move driver version to label without hardcoding too?
+          containerImage: docker-registry.qualcomm.com/carlv/qcom-aic100-kmm-1.20.0.0:${KERNEL_FULL_VERSION}
+          # TODO: Config repo and image name with Operator
+          build:
+            secrets:
+              - name: docker-qualcomm-carlv-rb
+            buildArgs:
+              - name: AIC100_SRC_IMG
+                value: "docker-registry.qualcomm.com/carlv/aic100_src"  # TODO: Config with Operator
+              - name: AIC100_VER
+                value: "1.20.0.0"  # TODO: Config with Operator
+            dockerfileConfigMap:
+              name: "qcom-aic-ko-cm"
+      inTreeModulesToRemove:
+        - mhi
+        - qaic
+    serviceAccountName: qcom-aic-sa
+  # TODO - make sure this part works
+  # e.g. qranium-k8s-device-plugin has other configs that could apply?
+  devicePlugin:
+    # TODO - using same ServiceAccount since both needed priviledged contexts, but could have separate one
+    serviceAccountName: qcom-aic-sa
+    container:
+      image: docker-registry.qualcomm.com/carlv/qcom-aic100-dev-plugin:latest  # TODO: Config with Operator
+      env:
+        - name: ALLOWED_QAIC_DEVICE_SHARES  # NOTE: Needed? don't think this supported still...
+          value: "4"
+      volumeMounts:
+        - name: device-plugin
+          mountPath: /var/lib/kubelet/device-plugin
+        - name: udev-run
+          mountPath: /run/udev
+          readOnly: true
+    volumes:
+      - name: device-plugin
+        hostPath:
+          path: /var/lib/kubelet/device-plugins
+      - name: udev-run
+        hostPath:
+          path: /run/dev
+  # TODO: Operator: Default to internal registry?
+  imageRepoSecret:
+    name: docker-qualcomm-carlv-rb
+  selector:
+    qualcomm.com/qaic: "true"
+    qualcom.com/qaic_in_kernel: "true"
+---
+apiVersion: kmm.sigs.x-k8s.io/v1beta1
+kind: Module
+metadata:
+  name: qcom-aic100-dev-wMHI
+  namespace: qcom-aic-resources
+spec:
+  moduleLoader:
+    container:
+      version: "1.20.0.0"   # TODO: Config with Operator
+      modprobe:
+        moduleName: qaic
+        dirName: /opt
+        firmwarePath: /firmware
+      # TODO - regex for SUSE builds, need to pass 3rd argument to dkms_prebuild
+      kernelMappings:
+        - regexp: '^.*$'
+          # TODO any way to move driver version to label without hardcoding too?
+          containerImage: docker-registry.qualcomm.com/carlv/qcom-aic100-kmm-1.20.0.0:${KERNEL_FULL_VERSION}
+          # TODO: Config repo and image name with Operator
+          build:
+            secrets:
+              - name: docker-qualcomm-carlv-rb
+            buildArgs:
+              - name: AIC100_SRC_IMG
+                value: "docker-registry.qualcomm.com/carlv/aic100_src"  # TODO: Config with Operator
+              - name: AIC100_VER
+                value: "1.20.0.0"  # TODO: Config with Operator
+            dockerfileConfigMap:
+              name: "qcom-aic-ko-cm"
+      inTreeModulesToRemove:
+        - mhi
+    serviceAccountName: qcom-aic-sa
+  # TODO - make sure this part works
+  # e.g. qranium-k8s-device-plugin has other configs that could apply?
+  devicePlugin:
+    # TODO - using same ServiceAccount since both needed priviledged contexts, but could have separate one
+    serviceAccountName: qcom-aic-sa
+    container:
+      image: docker-registry.qualcomm.com/carlv/qcom-aic100-dev-plugin:latest  # TODO: Config with Operator
+      env:
+        - name: ALLOWED_QAIC_DEVICE_SHARES  # NOTE: Needed? don't think this supported still...
+          value: "4"
+      volumeMounts:
+        - name: device-plugin
+          mountPath: /var/lib/kubelet/device-plugin
+        - name: udev-run
+          mountPath: /run/udev
+          readOnly: true
+    volumes:
+      - name: device-plugin
+        hostPath:
+          path: /var/lib/kubelet/device-plugins
+      - name: udev-run
+        hostPath:
+          path: /run/dev
+  # TODO: Operator: Default to internal registry?
+  imageRepoSecret:
+    name: docker-qualcomm-carlv-rb
+  selector:
+    qualcomm.com/qaic: "true"
+    qualcom.com/mhi_in_kernel: "true"
+---
+apiVersion: kmm.sigs.x-k8s.io/v1beta1
+kind: Module
+metadata:
+  name: qcom-aic100-dev-noMQ
+  namespace: qcom-aic-resources
+spec:
+  moduleLoader:
+    container:
+      version: "1.20.0.0"   # TODO: Config with Operator
+      modprobe:
+        moduleName: qaic
+        dirName: /opt
+        firmwarePath: /firmware
+      # TODO - regex for SUSE builds, need to pass 3rd argument to dkms_prebuild
+      kernelMappings:
+        - regexp: '^.*$'
+          # TODO any way to move driver version to label without hardcoding too?
+          containerImage: docker-registry.qualcomm.com/carlv/qcom-aic100-kmm-1.20.0.0:${KERNEL_FULL_VERSION}
+          # TODO: Config repo and image name with Operator
+          build:
+            secrets:
+              - name: docker-qualcomm-carlv-rb
+            buildArgs:
+              - name: AIC100_SRC_IMG
+                value: "docker-registry.qualcomm.com/carlv/aic100_src"  # TODO: Config with Operator
+              - name: AIC100_VER
+                value: "1.20.0.0"  # TODO: Config with Operator
+            dockerfileConfigMap:
+              name: "qcom-aic-ko-cm"
+    serviceAccountName: qcom-aic-sa
+  # TODO - make sure this part works
+  # e.g. qranium-k8s-device-plugin has other configs that could apply?
+  devicePlugin:
+    # TODO - using same ServiceAccount since both needed priviledged contexts, but could have separate one
+    serviceAccountName: qcom-aic-sa
+    container:
+      image: docker-registry.qualcomm.com/carlv/qcom-aic100-dev-plugin:latest  # TODO: Config with Operator
+      env:
+        - name: ALLOWED_QAIC_DEVICE_SHARES  # NOTE: Needed? don't think this supported still...
+          value: "4"
+      volumeMounts:
+        - name: device-plugin
+          mountPath: /var/lib/kubelet/device-plugin
+        - name: udev-run
+          mountPath: /run/udev
+          readOnly: true
+    volumes:
+      - name: device-plugin
+        hostPath:
+          path: /var/lib/kubelet/device-plugins
+      - name: udev-run
+        hostPath:
+          path: /run/dev
+  # TODO: Operator: Default to internal registry?
+  imageRepoSecret:
+    name: docker-qualcomm-carlv-rb
+  selector:
+    qualcomm.com/qaic: "true"
+    qualcom.com/not_mhi_qaic: "true"
+
+

@@ -1,0 +1,4 @@
+## Append samples of your project ##
+resources:
+- aic_v1_aic.yaml
+#+kubebuilder:scaffold:manifestskustomizesamples

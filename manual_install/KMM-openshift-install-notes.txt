@@ -1,0 +1,42 @@
+Manual Install steps:
+
+1.a.Download and unzip PlatformSDK-engbuild (with Sahara patch applied to KMD)
+1.b.Build SRC Image
+    a. run script to create src_rootdir (currently only support .deb)
+	  - ./make_src_root.sh qaic-fw.pkg qaic-kmd.pkg
+	b.Create SRC image
+		- podman build -f qcom-src-img-Dockerfile --build_arg=SRC_ROOT_DIR=./src_rootdir -t docker-registry.qualcomm.com/carlv/aic100_src:1.20.0.0
+	c.Log into registry
+	d.Upload SRC image to registry
+		- podman push docker-registry.qualcomm.com/carlv/aic100_src:1.20.0.0
+1.c.Build Device Plugin
+    a. See step to build img in qranium-k8s-device-plugin
+	b. Push DevicePlugin to registry
+		- podman push docker-registry.qualcomm.com/carlv/qcom-aic100-dev-plugin:1.20.0.0
+
+2.a.Create new project/namespace
+	- oc new-project qcom-aic-resources --display-name="Qualcomm AIC100 KMM OpModule Resources"
+	DEVNOTE: 'qcom-aic-resources' has been hardcoded in the current config files (qcom-aic-rule-nfd, qcom-aic-ko-cm, qcom-aic-kmmo)
+2.b.Install NFD to namespace 'qcom-aic-resources'
+	NOTE: Could install to default namespace, but would need to change qcom-aic-rule-nfd to use that namespace instead (its different between Openshift and standard K8s install, could this be auto-configured somehow?)
+	- use web console, OperatorHub (RedHat Version)
+2.c.Install KMM to stock namespace
+	- use web console, OperatorHub (Redhat Version, NOT Hub&Spoke)
+2.d.Apply NFD config for AIC100
+	NOTE: This could be simplified, first step can be configured to produce labels on nodes that 'generically' label PCI cards by device:vendor (with a little more configuration of the defaults), and use that label instead of a custom one...
+	- In 'Installed Operators' - select NFD
+	- Create new "Node Feature Discovery" CRD with default values
+       NOTE: This step just creates a custom label for nodes that have AIC100
+	- oc create -f qcom-aic-rule-nfd.yaml
+2.e.Import secret from image repo to cluster
+	- get secret from registry -> saved to docker-registry-qcom-carlv-rb.yaml
+	- NAMESPACE=qcom-aic-resources oc create -f docker-registry-qcom-carlv-rb.yaml --namespace=$NAMESPACE
+2.f.Apply KMM ConfigMap
+	- oc create -f qcom-aic-ko-cm.yaml
+2.g.Create Priviledged ServiceAccount
+    - oc create sa qcom-aic-sa -n qcom-aic-resources
+    - oc adm policy add-scc-to-user privileged -z qcom-aic-sa
+2.h.Apply KMMO config
+	- oc create -f qcom-aic-kmmo.yaml
+
+

@@ -8,7 +8,7 @@ ARG KERNEL_FULL_VERSION
 COPY --from=qaic-src /src /usr/src/qaic-${QAIC_VER}
 WORKDIR /usr/src/qaic-${QAIC_VER}
 RUN ./dkms_prebuild.sh ${KERNEL_FULL_VERSION} /lib/modules/${KERNEL_FULL_VERSION}/build && KERNELRELEASE=${KERNEL_FULL_VERSION} make
-FROM registry.redhat.io/ubi9/ubi-minimal
+FROM registry.access.redhat.com/ubi9/ubi-minimal:9.4
 ARG QAIC_VER
 ARG KERNEL_FULL_VERSION
 RUN microdnf -y install kmod && microdnf clean all && rm -rf /var/cache/yum

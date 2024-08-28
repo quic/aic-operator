@@ -161,7 +161,7 @@ func setKMMModuleLoader(mod *kmmv1beta1.Module, aic *aicv1.AIC, loadedMods aicv1
 	modulesToRemove := make([]string, 0)
 	switch loadedMods {
 	case aicv1.Qaic_loaded:
-		modulesToRemove = append(modulesToRemove, "quic")
+		modulesToRemove = append(modulesToRemove, "qaic")
 		fallthrough
 	case aicv1.Mhi_loaded:
 		modulesToRemove = append(modulesToRemove, "mhi")
@@ -244,7 +244,7 @@ func getNodeSelector(devConfig *aicv1.AIC, loadedMods aicv1.LoadedModules) map[s
 	selectors := map[string]string{"qualcomm.com/qaic": "true"}
 	switch loadedMods {
 	case aicv1.Qaic_loaded:
-		selectors["qualcomm.com/quic_in_kernel"] = "true"
+		selectors["qualcomm.com/qaic_in_kernel"] = "true"
 	case aicv1.Mhi_loaded:
 		selectors["qualcomm.com/mhi_in_kernel"] = "true"
 	case aicv1.None_loaded:

@@ -193,6 +193,8 @@ func setKMMDevicePlugin(mod *kmmv1beta1.Module, aic *aicv1.AIC) error {
 	devicePluginImage := aic.Spec.DevicePluginImage
 	if devicePluginImage == "" {
 		devicePluginImage = fmt.Sprintf(defaultDevicePluginImageTemplate, devPluginVersion)
+	} else {
+               devicePluginImage = devicePluginImage + ":" + devPluginVersion
 	}
 	replaced, err := parser.Parse(devicePluginImage)
 	if err != nil {

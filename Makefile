@@ -255,6 +255,7 @@ endif
 bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metadata, then validate generated files.
 	$(OPERATOR_SDK) generate kustomize manifests -q
 	cd config/manager && $(KUSTOMIZE) edit set image controller=$(IMG)
+	$(KUSTOMIZE) build config/default/ > aic-operator-deploy.yaml
 	$(KUSTOMIZE) build config/manifests | $(OPERATOR_SDK) generate bundle --extra-service-accounts aic-operator-kmm-module-loader,aic-operator-kmm-device-plugin $(BUNDLE_GEN_FLAGS)
 	$(OPERATOR_SDK) bundle validate ./bundle
 

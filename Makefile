@@ -151,7 +151,7 @@ run: manifests generate fmt vet ## Run a controller from your host.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+	$(CONTAINER_TOOL) build -t ${IMG} --build-arg VERSION=${VERSION} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
@@ -261,7 +261,7 @@ bundle: manifests kustomize operator-sdk ## Generate bundle manifests and metada
 
 .PHONY: bundle-build
 bundle-build: ## Build the bundle image.
-	$(CONTAINER_TOOL) build -f bundle.Dockerfile -t $(BUNDLE_IMG) .
+	$(CONTAINER_TOOL) build -f bundle.Dockerfile -t $(BUNDLE_IMG) --build-arg VERSION=${VERSION} .
 
 .PHONY: bundle-push
 bundle-push: ## Push the bundle image.

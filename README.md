@@ -1,4 +1,4 @@
-# aic-operator
+# cloud_ai_openshift_operator
 The AIC Operator enables the Qualcomm® Cloud AI series of hardware on OpenShift clusters by
 automating the configuration and installation of their Linux device drivers and setting up
 its Device Plugin.
@@ -54,9 +54,12 @@ Now, on with building and deploying the AIC Operator.
 **Build and push your image to the location specified by `IMG`:**
 
 ```sh
-make docker-build docker-push IMG=<some-registry>/aic-operator:tag
+make docker-build docker-push IMG=<some-registry>/cloud_ai_openshift_operator:tag VERSION=<version>
 ```
-
+### Build Operator-Bundle
+```sh
+make bundle-build bundle-push IMG=<some-registry>/cloud_ai_openshift_operator:tag BUNDLE_IMG=<some-registry>/cloud_ai_openshift_operator_bundle:tag VERSION=<version>
+```
 **NOTE:** This image ought to be published in the personal registry you specified.
 And it is required to have access to pull the image from the working environment.
 Make sure you have the proper permission to the registry if the above commands don’t work.
@@ -70,7 +73,7 @@ make install
 **Deploy the Manager to the cluster with the image specified by `IMG`:**
 
 ```sh
-make deploy IMG=<some-registry>/aic-operator:tag
+make deploy IMG=<some-registry>/cloud_ai_openshift_operator:tag
 ```
 
 > **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin

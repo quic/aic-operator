@@ -1,4 +1,4 @@
-FROM registry.access.redhat.com/ubi9/ubi-micro:9.4
+FROM registry.access.redhat.com/ubi9/ubi-micro:9.5
 ARG SRC_ROOT_DIR
 ARG VERSION=none
 COPY ${SRC_ROOT_DIR} /

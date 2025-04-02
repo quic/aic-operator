@@ -1,13 +1,19 @@
 ARG QAIC_SRC_IMG
 ARG QAIC_VER
-FROM ${QAIC_SRC_IMG}:${QAIC_VER} as qaic-src
 ARG DTK_AUTO
+
+
+FROM ${QAIC_SRC_IMG}:${QAIC_VER} as qaic-src
+
+
 FROM ${DTK_AUTO} as builder
 ARG QAIC_VER
 ARG KERNEL_FULL_VERSION
 COPY --from=qaic-src /src /usr/src/qaic-${QAIC_VER}
 WORKDIR /usr/src/qaic-${QAIC_VER}
 RUN ./dkms_prebuild.sh ${KERNEL_FULL_VERSION} /lib/modules/${KERNEL_FULL_VERSION}/build && KERNELRELEASE=${KERNEL_FULL_VERSION} make
+
+
 FROM registry.access.redhat.com/ubi9/ubi-minimal:9.5
 ARG QAIC_VER
 ARG KERNEL_FULL_VERSION
@@ -17,4 +23,3 @@ COPY --from=qaic-src /firmware /firmware
 COPY --from=builder /usr/src/qaic-${QAIC_VER}/qaic/qaic.ko /opt/lib/modules/${KERNEL_FULL_VERSION}/
 COPY --from=builder /usr/src/qaic-${QAIC_VER}/mhi/host/mhi.ko /opt/lib/modules/${KERNEL_FULL_VERSION}/
 RUN /usr/sbin/depmod -b /opt ${KERNEL_FULL_VERSION}
-

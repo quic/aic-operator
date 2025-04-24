@@ -28,8 +28,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# quicinc.com/aic-operator-bundle:$VERSION and quicinc.com/aic-operator-catalog:$VERSION.
-IMAGE_TAG_BASE ?= quicinc.com/aic-operator
+# quicinc.com/cloud_ai_openshift_operator-bundle:$VERSION and quicinc.com/cloud_ai_openshift_operator-catalog:$VERSION.
+IMAGE_TAG_BASE ?= quicinc.com/cloud_ai_openshift_operator
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)
@@ -48,12 +48,12 @@ endif
 
 # Set the Operator SDK version to use. By default, what is installed on the system is used.
 # This is useful for CI or a project to utilize a specific version of the operator-sdk toolkit.
-OPERATOR_SDK_VERSION ?= v1.34.1
+OPERATOR_SDK_VERSION ?= v1.39.1
 
 # Image URL to use all building/pushing image targets
 IMG ?= ${IMAGE_TAG_BASE}:${VERSION}
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
-ENVTEST_K8S_VERSION = 1.28.3
+ENVTEST_K8S_VERSION = 1.31.0
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)
 ifeq (,$(shell go env GOBIN))
@@ -234,10 +234,8 @@ envtest: $(ENVTEST) ## Download envtest-setup locally if necessary.
 $(ENVTEST):
 	test -s $(GOBIN)/setup-envtest || GOBIN=$(GOBIN) go install sigs.k8s.io/controller-runtime/tools/setup-envtest@latest
 
-USRLOCALBIN ?= /usr/local/bin
-
 .PHONY: operator-sdk
-OPERATOR_SDK ?= $(USRLOCALBIN)/operator-sdk
+OPERATOR_SDK ?= $(LOCALBIN)/operator-sdk
 operator-sdk: ## Download operator-sdk locally if necessary.
 ifeq (,$(wildcard $(OPERATOR_SDK)))
 ifeq (, $(shell which operator-sdk 2>/dev/null))

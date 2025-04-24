@@ -22,7 +22,7 @@ elements shouldn't matter (so long as they're under the correct heading (e.g. 'w
 'worker', etc.)), but their existence does).
 
 ```sh
-oc patch configmap kmm-operator-manager-config -n openshift-kmm --type='json' -p='[{"op": "add", "path": "/data/controller_config.yaml", "value": "healthProbeBindAddress: :8081\nmetricsBindAddress: 127.0.0.1:8080\nleaderElection:\n enabled: true\n resourceID: kmm.sigs.x-k8s.io\nwebhook:\n disableHTTP2: true\n port: 9443\nmetrics:\n enableAuthnAuthz: true\n disableHTTP2: true\n bindAddress: 0.0.0.0:8443\n secureServing: true\nworker:\n runAsUser: 0\n seLinuxType: spc_t\n setFirmwareClassPath: /var/lib/firmware"}]'
+oc patch configmap kmm-operator-manager-config -n openshift-kmm --type='json' -p='[{"op": "add", "path": "/data/controller_config.yaml", "value": "healthProbeBindAddress: :8081\nmetricsBindAddress: 127.0.0.1:8080\nleaderElection:\n enabled: true\n resourceID: kmm.sigs.x-k8s.io\nwebhook:\n disableHTTP2: true\n port: 9443\nmetrics:\n enableAuthnAuthz: true\n disableHTTP2: true\n bindAddress: 0.0.0.0:8443\n secureServing: true\nworker:\n runAsUser: 0\n seLinuxType: spc_t\n firmwareHostPath: /var/lib/firmware"}]'
 ```
 
 The important part added in the above config patch is
@@ -45,10 +45,9 @@ oc delete pod -n openshift-kmm -l app.kubernetes.io/component=kmm
 Now, on with building and deploying the AIC Operator.
 
 ### Prerequisites
-- go version v1.20.0+
+- go version v1.23.0+
 - docker version 17.03+.
-- kubectl version v1.11.3+.
-- Access to a Kubernetes v1.11.3+ cluster.
+- Access to a Kubernetes v1.31+ cluster.
 
 ### To Deploy on the cluster
 **Build and push your image to the location specified by `IMG`:**
@@ -79,25 +78,19 @@ make deploy IMG=<some-registry>/cloud_ai_openshift_operator:tag
 > **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
 privileges or be logged in as admin.
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
+**Create instances of AIC**
+You can create the samples (examples) from the config/sample:
 
 ```sh
-kubectl apply -k config/samples/
+oc create -k config/samples/
 ```
 
-> **NOTE**: the provided sample defaults rely on usage of the cluster's internal registry.
-The following image tags should be available:
-
-image-registry.openshift-image-registry.svc:5000/${AIC_NAMESPACE}/quic_aic_device_plugin:0.1
-
-image-registry.openshift-image-registry.svc:5000/${AIC_NAMESPACE}/quic_aic_src:0.1
 
 ### To Uninstall
-**Delete the instances (CRs) from the cluster:**
+**Delete the instances (CRs) of AIC from the cluster:**
 
 ```sh
-kubectl delete -k config/samples/
+oc delete -k config/samples/
 ```
 
 **Delete the APIs(CRDs) from the cluster:**

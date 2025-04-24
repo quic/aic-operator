@@ -15,7 +15,7 @@ limitations under the License.
 
 Based on code from https://github.com/yevgeny-shnaidman/amd-gpu-operator
 
-Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 SPDX-License-Identifier: BSD-3-Clause-Clear
 Not a contribution.
 */
@@ -42,11 +42,6 @@ const (
 	nodeVarLibFirmwarePath           = "/var/lib/firmware"
 	aicDriverModuleName              = "qaic"
 	imageFirmwarePath                = "/firmware"
-	defaultDevicePluginImageTemplate = "image-registry.openshift-image-registry.svc:5000/$MOD_NAMESPACE/quic_aic_device_plugin:%s"
-	defaultDriversImageTemplate      = "image-registry.openshift-image-registry.svc:5000/$MOD_NAMESPACE/quic_aic_kmods:%s-$KERNEL_VERSION"
-	defaultDriversVersion            = "0.1"
-	defaultDevPluginVersion          = "0.1"
-	defaultSourceImage               = "image-registry.openshift-image-registry.svc:5000/${MOD_NAMESPACE}/quic_aic_src"
 )
 
 var (
@@ -109,12 +104,12 @@ func setKMMModuleLoader(mod *kmmv1beta1.Module, aic *aicv1.AIC, loadedMods aicv1
 	parser := parse.New("mod_replace", modVars, &parse.Restrictions{})
 
 	if driversVersion == "" {
-		driversVersion = defaultDriversVersion
+		return fmt.Errorf("driversVersion in AIC spec is not set, exiting")
 	}
 
 	sourceImage := aic.Spec.SourceImage
 	if sourceImage == "" {
-		sourceImage = defaultSourceImage
+		return fmt.Errorf("sourceImage in AIC spec is not set, exiting")
 	}
 	replaced, err := parser.Parse(sourceImage)
 	if err != nil {
@@ -124,7 +119,7 @@ func setKMMModuleLoader(mod *kmmv1beta1.Module, aic *aicv1.AIC, loadedMods aicv1
 
 	driversImage := aic.Spec.DriversImage
 	if driversImage == "" {
-		driversImage = fmt.Sprintf(defaultDriversImageTemplate, driversVersion)
+		return fmt.Errorf("driversImage in AIC spec is not set, exiting")
 	}
 	if useInTree {
 		driversImage = driversImage + "-inTree"
@@ -183,7 +178,7 @@ func setKMMModuleLoader(mod *kmmv1beta1.Module, aic *aicv1.AIC, loadedMods aicv1
 func setKMMDevicePlugin(mod *kmmv1beta1.Module, aic *aicv1.AIC) error {
 	devPluginVersion := aic.Spec.DevPluginVersion
 	if devPluginVersion == "" {
-		devPluginVersion = defaultDevPluginVersion
+               return fmt.Errorf("devPluginVersion not set in AIC Spec")
 	}
 
 	modVars := []string{
@@ -192,7 +187,7 @@ func setKMMDevicePlugin(mod *kmmv1beta1.Module, aic *aicv1.AIC) error {
 	parser := parse.New("mod_replace", modVars, &parse.Restrictions{})
 	devicePluginImage := aic.Spec.DevicePluginImage
 	if devicePluginImage == "" {
-		devicePluginImage = fmt.Sprintf(defaultDevicePluginImageTemplate, devPluginVersion)
+               return fmt.Errorf("devivePluginImage not set in AIC Spec")
 	} else {
                devicePluginImage = devicePluginImage + ":" + devPluginVersion
 	}

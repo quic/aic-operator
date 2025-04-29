@@ -296,6 +296,26 @@ rules:
   - patch
   - update
 - apiGroups:
+  - nfd.openshift.io
+  resources:
+  - nodefeaturerules
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - nfd.openshift.io
+  resources:
+  - nodefeaturerules/status
+  verbs:
+  - get
+  - patch
+  - update
+- apiGroups:
   - rbac.authorization.k8s.io
   resources:
   - clusterrolebindings
@@ -519,7 +539,7 @@ spec:
         - --leader-elect
         command:
         - /manager
-        image: ##Replace with aic-operator image URL
+        image: ghcr.io/quic/cloud_ai_openshift_operator:0.1.1 ##Replace the image tag to use a different version of Operator
         imagePullPolicy: Always
         livenessProbe:
           httpGet:

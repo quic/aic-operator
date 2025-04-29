@@ -8,14 +8,9 @@ This Operator relies on the Node Feature Discovery (NFD) and Kernel Module Manag
 (KMM) Operators. Be sure to install them from the OperatorHub (provided by Red Hat, not
 the Community).
 
-NFD and KMM both require addition configuration after they're installed. NFD requires the
-CRD located in [./manual_install/qcom-aic-rule-nfd.yaml](./manual_install/qcom-aic-rule-nfd.yaml) to be added to the cluster.
+NFD operator needs the default NodeFeatureDiscovery Custom Resource(CR) to be created after it's installed.
 
-```sh
-oc apply -f ./manual_install/qcom-aic-rule-nfd.yaml
-```
-
-KMM also requires configuration so that firmware can be located correctly. The following
+KMM requires configuration so that firmware can be located correctly. The following
 command should work for most clusters, but make sure to check that the
 'controler_config.yaml' section matches the existing configuration (note: ordering of the
 elements shouldn't matter (so long as they're under the correct heading (e.g. 'webhook',

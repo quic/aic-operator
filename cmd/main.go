@@ -15,7 +15,7 @@ limitations under the License.
 
 Based on code from https://github.com/yevgeny-shnaidman/amd-gpu-operator
 
-Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 SPDX-License-Identifier: BSD-3-Clause-Clear
 Not a contribution.
 */
@@ -43,7 +43,9 @@ import (
 	aicv1 "github.com/quic/aic-operator/api/v1"
 	"github.com/quic/aic-operator/internal/controller"
 	"github.com/quic/aic-operator/internal/kmmmodule"
+	"github.com/quic/aic-operator/internal/nfdrule"
 	kmmv1beta1 "github.com/rh-ecosystem-edge/kernel-module-management/api/v1beta1"
+	nfr "github.com/openshift/cluster-nfd-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
@@ -56,6 +58,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 	utilruntime.Must(aicv1.AddToScheme(scheme))
 	utilruntime.Must(kmmv1beta1.AddToScheme(scheme))
+	utilruntime.Must(nfr.AddToScheme(scheme))
 	//+kubebuilder:scaffold:scheme
 }
 
@@ -132,10 +135,11 @@ func main() {
 
 	client := mgr.GetClient()
 	kmmHandler := kmmmodule.NewKMMModule(client, scheme)
+	nfdHandler := nfdrule.NewNFDRule(client, scheme)
 	aicr := controller.NewAICReconciler(
 		client,
 		mgr.GetScheme(),
-		kmmHandler)
+		kmmHandler, nfdHandler)
 
 	if err = aicr.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AIC")

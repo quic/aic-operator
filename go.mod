@@ -8,6 +8,7 @@ require (
 	github.com/a8m/envsubst v1.4.2
 	github.com/onsi/ginkgo/v2 v2.17.1
 	github.com/onsi/gomega v1.32.0
+	github.com/openshift/cluster-nfd-operator v0.0.0-20250423093037-ad5de3ee96a7
 	github.com/rh-ecosystem-edge/kernel-module-management v0.0.0-20240412150217-30de2c7d4ede
 	k8s.io/api v0.29.3
 	k8s.io/apimachinery v0.29.3

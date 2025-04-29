@@ -15,6 +15,7 @@ COPY cmd/main.go cmd/main.go
 COPY api/ api/
 COPY internal/controller/ internal/controller/
 COPY internal/kmmmodule/ internal/kmmmodule/
+COPY internal/nfdrule/ internal/nfdrule/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command
@@ -28,6 +29,8 @@ ARG VERSION=none
 RUN microdnf -y update
 WORKDIR /
 COPY --from=builder /opt/app-root/src/manager .
+RUN mkdir -p /opt/aic-manifests
+COPY --from=builder /opt/app-root/src/internal/nfdrule/qcom-aic-nfr.yaml /opt/aic-manifests/
 LABEL name="cloud_ai_openshift_operator" \
       maintainer="Qualcomm Innovation Center, Inc." \
       vendor="Qualcomm Innovation Center, Inc." \

@@ -15,7 +15,7 @@ limitations under the License.
 
 Based on code from https://github.com/yevgeny-shnaidman/amd-gpu-operator
 
-Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) 2024-2025 Qualcomm Innovation Center, Inc. All rights reserved.
 SPDX-License-Identifier: BSD-3-Clause-Clear
 Not a contribution.
 */
@@ -28,6 +28,7 @@ import (
 	"fmt"
 
 	kmmv1beta1 "github.com/rh-ecosystem-edge/kernel-module-management/api/v1beta1"
+	nfr "github.com/openshift/cluster-nfd-operator/api/v1alpha1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -40,6 +41,7 @@ import (
 
 	aicv1 "github.com/quic/aic-operator/api/v1"
 	"github.com/quic/aic-operator/internal/kmmmodule"
+	"github.com/quic/aic-operator/internal/nfdrule"
 )
 
 // AICReconciler reconciles an AIC object
@@ -54,6 +56,8 @@ type AICReconciler struct {
 //+kubebuilder:rbac:groups=aic.quicinc.com,resources=aics/finalizers,verbs=update
 //+kubebuilder:rbac:groups=kmm.sigs.x-k8s.io,resources=modules,verbs=get;list;watch;create;patch;update;delete
 //+kubebuilder:rbac:groups=kmm.sigs.x-k8s.io,resources=modules/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=nfd.openshift.io,resources=nodefeaturerules,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=nfd.openshift.io,resources=nodefeaturerules/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=rbac.authorization.k8s.io,resources=clusterroles;clusterrolebindings;roles;rolebindings,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=namespaces;serviceaccounts;pods;pods/exec;pods/attach;services;services/finalizers;endpoints,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=core,resources=configmaps;secrets;nodes,verbs=get;list;watch;create;update;patch;delete
@@ -63,8 +67,9 @@ type AICReconciler struct {
 func NewAICReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
-	kmmHandler kmmmodule.KMMModuleAPI) *AICReconciler {
-	helper := newAICReconcilerHelper(client, kmmHandler)
+	kmmHandler kmmmodule.KMMModuleAPI,
+        nfdHandler nfdrule.NFDRuleAPI) *AICReconciler {
+	helper := newAICReconcilerHelper(client, kmmHandler, nfdHandler)
 	return &AICReconciler{
 		Client: client,
 		Scheme: scheme,
@@ -114,6 +119,12 @@ func (r *AICReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 		return res, fmt.Errorf("failed to set finalizer for AIC %s: %v", req.NamespacedName, err)
 	}
 
+	logger.Info("start NFR reconciliation")
+        err = r.helper.handleAICNFDRule(ctx, aic)
+        if err != nil {
+                return res, fmt.Errorf("failed to handle NFR creation %s: %v", req.NamespacedName, err)
+        }
+
 	logger.Info("start build configmap reconciliation")
 	// Always want to have the ConfigMap that can build module images
 	err = r.helper.handleBuildConfigMap(ctx, aic, false)
@@ -156,18 +167,21 @@ type AICReconcilerHelperAPI interface {
 	setFinalizer(ctx context.Context, aic *aicv1.AIC) error
 	handleBuildConfigMap(ctx context.Context, devConfig *aicv1.AIC, useInTree bool) error
 	handleKMMModule(ctx context.Context, devConfig *aicv1.AIC, loadedMods aicv1.LoadedModules) error
+	handleAICNFDRule(ctx context.Context, aic *aicv1.AIC) error
 }
 
 type AICReconcilerHelper struct {
 	client     client.Client
 	kmmHandler kmmmodule.KMMModuleAPI
+	nfdHandler nfdrule.NFDRuleAPI
 }
 
 func newAICReconcilerHelper(client client.Client,
-	kmmHandler kmmmodule.KMMModuleAPI) AICReconcilerHelperAPI {
+	kmmHandler kmmmodule.KMMModuleAPI, nfdHandler nfdrule.NFDRuleAPI) AICReconcilerHelperAPI {
 	return &AICReconcilerHelper{
 		client:     client,
 		kmmHandler: kmmHandler,
+		nfdHandler: nfdHandler,
 	}
 }
 func (aicrh *AICReconcilerHelper) getRequestedAIC(ctx context.Context, namespacedName types.NamespacedName) (*aicv1.AIC, error) {
@@ -215,12 +229,31 @@ func (aicrh *AICReconcilerHelper) finalizeAIC(ctx context.Context, aic *aicv1.AI
 			faults = append(faults, err)
 		}
 	}
+        //Delete NFR owned by AIC.
+	nfrObj := nfr.NodeFeatureRule{}
+	nsName := types.NamespacedName{
+		Namespace: aic.Namespace,
+		Name: "qcom-aic-nfr",
+	}
+	err = aicrh.client.Get(ctx, nsName, &nfrObj)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			deleted = append(deleted, err)
+		} else {
+			faults = append(faults, fmt.Errorf("failed to get the requested NFR %s: %w", nsName, err))
+		}
+	} else {
+		logger.Info("deleting NFR CR", "NFR", nsName)
+		if err = aicrh.client.Delete(ctx, &nfrObj); client.IgnoreNotFound(err) != nil {
+			faults = append(faults, err)
+		}
+	}
 
 	err = errors.Join(faults...)
 
 	//remove finalizer only if no faults occurred during removal
-	if len(deleted) == int(aicv1.None_loaded)+1 && err == nil {
-		logger.Info("modules already deleted, removing finalizer", "module", aic.Name)
+	if len(deleted) == int(aicv1.None_loaded)+2 && err == nil {
+		logger.Info("modules & NFR already deleted, removing finalizer", "module, NFR", aic.Name)
 		aicCopy := aic.DeepCopy()
 		controllerutil.RemoveFinalizer(aic, aicFinalizer)
 		return aicrh.client.Patch(ctx, aic, client.MergeFrom(aicCopy))
@@ -271,6 +304,25 @@ func (aicrh *AICReconcilerHelper) handleKMMModule(ctx context.Context, aic *aicv
 	return err
 }
 
+func (aicrh *AICReconcilerHelper) handleAICNFDRule(ctx context.Context, aic *aicv1.AIC) error {
+
+	nfrObj := &nfr.NodeFeatureRule{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: aic.Namespace,
+			Name:      "qcom-aic-nfr",
+		},
+	}
+        logger := log.FromContext(ctx)
+         opRes, err := controllerutil.CreateOrPatch(ctx, aicrh.client, nfrObj, func() error {
+                return aicrh.nfdHandler.SetNFRasDesired(nfrObj, aic)
+        })
+         if err != nil {
+                logger.Info("Reconciled NFR", "name", nfrObj.Name, "result", opRes)
+                 return err
+         }
+        return nil
+
+}
 func getDockerfileCMName(aic *aicv1.AIC, useInTree bool) string {
 	if useInTree {
 		return "dockerfile-intree-" + aic.Name

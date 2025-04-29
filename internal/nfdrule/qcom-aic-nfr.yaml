@@ -1,0 +1,47 @@
+apiVersion: nfd.openshift.io/v1alpha1
+kind: NodeFeatureRule
+metadata:
+  name: qcom-aic-nfr
+  namespace: aic-operator-system
+spec:
+  rules:
+    - name: "node.has_qaic_hw"
+      labels:
+        "qualcomm.com/qaic": "true"
+      matchFeatures:
+        - feature: pci.device
+          matchExpressions:
+            class:  {op: In, value: ["1200", "ff00"]}
+            vendor: {op: In, value: ["17cb"]}
+            device: {op: In, value: ["a100"]}
+    - name: "kernel.mhi_avail"
+      labels:
+        "qualcomm.com/mhi_in_kernel": "true"
+      matchFeatures:
+      - feature: rule.matched
+        matchExpressions:
+          "qualcomm.com/qaic": {op: IsTrue}
+      - feature: kernel.config
+        matchExpressions:
+          MHI_BUS: {op: In, value: ["y","m"]}
+    - name: "kernel.qaic_avail"
+      labels:
+        "qualcomm.com/qaic_in_kernel": "true"
+      matchFeatures:
+      - feature: rule.matched
+        matchExpressions:
+          "qualcomm.com/qaic": {op: IsTrue}
+      - feature: kernel.config
+        matchExpressions:
+          DRM_ACCEL_QAIC: {op: In, value: ["y","m"]}
+    - name: "kernel.not_mhi_qaic"
+      labels:
+        "qualcomm.com/not_mhi_qaic": "true"
+      matchFeatures:
+      - feature: rule.matched
+        matchExpressions:
+          "qualcomm.com/qaic": {op: IsTrue}
+      - feature: kernel:loadedmodule
+        matchExpressions:
+          qaic: {op: DoesNotExist}
+          mhi: {op: DoesNotExist}

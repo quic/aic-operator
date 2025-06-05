@@ -171,7 +171,7 @@ func setKMMModuleLoader(mod *kmmv1beta1.Module, aic *aicv1.AIC, loadedMods aicv1
 
 	mod.Spec.ModuleLoader.ServiceAccountName = "aic-operator-kmm-module-loader"
 	mod.Spec.ImageRepoSecret = aic.Spec.ImageRepoSecret
-	mod.Spec.Selector = getNodeSelector(aic, loadedMods)
+	mod.Spec.Selector = getNodeSelector()
 	return nil
 }
 
@@ -233,21 +233,8 @@ func getDockerfileCMName(aic *aicv1.AIC, useInTree bool) string {
 	}
 }
 
-func getNodeSelector(devConfig *aicv1.AIC, loadedMods aicv1.LoadedModules) map[string]string {
-	if devConfig.Spec.Selector != nil {
-		return devConfig.Spec.Selector
-	}
+func getNodeSelector() map[string]string {
 
 	selectors := map[string]string{"qualcomm.com/qaic": "true"}
-	switch loadedMods {
-	case aicv1.Qaic_loaded:
-		selectors["qualcomm.com/qaic_in_kernel"] = "true"
-	case aicv1.Mhi_loaded:
-		selectors["qualcomm.com/mhi_in_kernel"] = "true"
-	case aicv1.None_loaded:
-		selectors["qualcomm.com/not_mhi_qaic"] = "true"
-	default:
-	}
-
 	return selectors
 }

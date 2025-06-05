@@ -17,7 +17,7 @@ elements shouldn't matter (so long as they're under the correct heading (e.g. 'w
 'worker', etc.)), but their existence does).
 
 ```sh
-oc patch configmap kmm-operator-manager-config -n openshift-kmm --type='json' -p='[{"op": "add", "path": "/data/controller_config.yaml", "value": "healthProbeBindAddress: :8081\nmetricsBindAddress: 127.0.0.1:8080\nleaderElection:\n enabled: true\n resourceID: kmm.sigs.x-k8s.io\nwebhook:\n disableHTTP2: true\n port: 9443\nmetrics:\n enableAuthnAuthz: true\n disableHTTP2: true\n bindAddress: 0.0.0.0:8443\n secureServing: true\nworker:\n runAsUser: 0\n seLinuxType: spc_t\n firmwareHostPath: /var/lib/firmware"}]'
+oc patch configmap kmm-operator-manager-config -n openshift-kmm --type='json' -p='[{"op": "add", "path": "/data/controller_config.yaml", "value": "healthProbeBindAddress: :8081\nmetricsBindAddress: 127.0.0.1:8080\nleaderElection:\n enabled: true\n resourceID: kmm.sigs.x-k8s.io\nwebhook:\n disableHTTP2: true\n port: 9443\nmetrics:\n enableAuthnAuthz: true\n disableHTTP2: true\n bindAddress: 0.0.0.0:8443\n secureServing: true\nworker:\n runAsUser: 0\n seLinuxType: spc_t\n firmwareHostPath: /lib/firmware"}]'
 ```
 
 The important part added in the above config patch is

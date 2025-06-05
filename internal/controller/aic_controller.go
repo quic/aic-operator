@@ -140,11 +140,9 @@ func (r *AICReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	}
 
 	logger.Info("start KMM reconciliation")
-	for i := aicv1.Qaic_loaded; i <= aicv1.None_loaded; i++ {
-		err = r.helper.handleKMMModule(ctx, aic, i)
-		if err != nil {
-			return res, fmt.Errorf("failed to handle KMM module for AIC %s: %v", req.NamespacedName, err)
-		}
+	err = r.helper.handleKMMModule(ctx, aic, aicv1.Qaic_loaded)
+	if err != nil {
+		return res, fmt.Errorf("failed to handle KMM module for AIC %s: %v", req.NamespacedName, err)
 	}
 
 	// TODO Metrics
@@ -208,22 +206,20 @@ func (aicrh *AICReconcilerHelper) finalizeAIC(ctx context.Context, aic *aicv1.AI
 	logger := log.FromContext(ctx)
 
 	mod := kmmv1beta1.Module{}
-	deleted := make([]error, 0, aicv1.None_loaded+1)
-	faults := make([]error, 0, aicv1.None_loaded+1)
-	for loaded := aicv1.Qaic_loaded; loaded <= aicv1.None_loaded; loaded++ {
-		nsName := types.NamespacedName{
-			Namespace: aic.Namespace,
-			Name:      getKMMModuleName(aic, loaded),
-		}
-		err = aicrh.client.Get(ctx, nsName, &mod)
-		if err != nil {
-			if k8serrors.IsNotFound(err) {
-				deleted = append(deleted, err)
-				continue
-			}
+	deleted := make([]error, 0, 2)
+	faults := make([]error, 0, 2)
+	nsName := types.NamespacedName{
+		Namespace: aic.Namespace,
+		Name:      aic.Name,
+	}
+	err = aicrh.client.Get(ctx, nsName, &mod)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			deleted = append(deleted, err)
+		} else {
 			faults = append(faults, fmt.Errorf("failed to get the requested Module %s: %w", nsName, err))
-			continue
 		}
+	} else {
 		logger.Info("deleting KMM Module", "module", nsName)
 		if err = aicrh.client.Delete(ctx, &mod); client.IgnoreNotFound(err) != nil {
 			faults = append(faults, err)
@@ -231,7 +227,7 @@ func (aicrh *AICReconcilerHelper) finalizeAIC(ctx context.Context, aic *aicv1.AI
 	}
         //Delete NFR owned by AIC.
 	nfrObj := nfr.NodeFeatureRule{}
-	nsName := types.NamespacedName{
+	nsName = types.NamespacedName{
 		Namespace: aic.Namespace,
 		Name: "qcom-aic-nfr",
 	}
@@ -252,8 +248,9 @@ func (aicrh *AICReconcilerHelper) finalizeAIC(ctx context.Context, aic *aicv1.AI
 	err = errors.Join(faults...)
 
 	//remove finalizer only if no faults occurred during removal
-	if len(deleted) == int(aicv1.None_loaded)+2 && err == nil {
-		logger.Info("modules & NFR already deleted, removing finalizer", "module, NFR", aic.Name)
+	//len==2, because 1 for Module and 1 for NFR.
+	if len(deleted) == 2 && err == nil {
+		logger.Info("Module & NFR already deleted, removing finalizer", "Module, NFR", aic.Name)
 		aicCopy := aic.DeepCopy()
 		controllerutil.RemoveFinalizer(aic, aicFinalizer)
 		return aicrh.client.Patch(ctx, aic, client.MergeFrom(aicCopy))
@@ -289,7 +286,7 @@ func (aicrh *AICReconcilerHelper) handleKMMModule(ctx context.Context, aic *aicv
 	kmmMod := &kmmv1beta1.Module{
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: aic.Namespace,
-			Name:      getKMMModuleName(aic, loadedMods),
+			Name:      aic.Name,
 		},
 	}
 	logger := log.FromContext(ctx)
@@ -329,14 +326,4 @@ func getDockerfileCMName(aic *aicv1.AIC, useInTree bool) string {
 	} else {
 		return "dockerfile-" + aic.Name
 	}
-}
-
-func getKMMModuleName(aic *aicv1.AIC, loadedMods aicv1.LoadedModules) string {
-	var modName = aic.Name
-	var nameSuffixMap = map[aicv1.LoadedModules]string{
-		aicv1.Qaic_loaded: "-q", //TODO check name length to make sure its short enough (40 char?)
-		aicv1.Mhi_loaded:  "-m",
-		aicv1.None_loaded: "-d",
-	}
-	return modName + nameSuffixMap[loadedMods]
 }

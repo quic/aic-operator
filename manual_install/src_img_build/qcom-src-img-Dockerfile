@@ -3,8 +3,8 @@ ARG SRC_ROOT_DIR
 ARG VERSION=none
 COPY ${SRC_ROOT_DIR} /
 LABEL name="cloud_ai_openshift_operator" \
-      maintainer="Qualcomm Innovation Center, Inc." \
-      vendor="Qualcomm Innovation Center, Inc." \
+      maintainer="Qualcomm Technologies, Inc." \
+      vendor="Qualcomm Technologies, Inc." \
       version="${VERSION}" \
       release="${VERSION}" \
       summary="Openshift Operator to orchestrate the Qualcomm AIC containers" \

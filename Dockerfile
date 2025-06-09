@@ -32,8 +32,8 @@ COPY --from=builder /opt/app-root/src/manager .
 RUN mkdir -p /opt/aic-manifests
 COPY --from=builder /opt/app-root/src/internal/nfdrule/qcom-aic-nfr.yaml /opt/aic-manifests/
 LABEL name="cloud_ai_openshift_operator" \
-      maintainer="Qualcomm Innovation Center, Inc." \
-      vendor="Qualcomm Innovation Center, Inc." \
+      maintainer="Qualcomm Technologies, Inc." \
+      vendor="Qualcomm Technologies, Inc." \
       version="${VERSION}" \
       release="${VERSION}" \
       summary="Openshift Operator to orchestrate the Qualcomm AIC containers" \

@@ -19,9 +19,9 @@ metadata:
     features.operators.openshift.io/token-auth-aws: "false"
     features.operators.openshift.io/token-auth-azure: "false"
     features.operators.openshift.io/token-auth-gcp: "false"
-    provider: Qualcomm Innovation Center, Inc.
+    provider: Qualcomm Technologies, Inc.
     repository: https://github.com/quic/aic-operator
-    support: Qualcomm Innovation Center, Inc.
+    support: Qualcomm Technologies, Inc.
   name: aic-operator.v0.0.0
   namespace: placeholder
 spec:
@@ -70,7 +70,7 @@ spec:
     name: quic_carls
   maturity: alpha
   provider:
-    name: Qualcomm Innovation Center, Inc.
+    name: Qualcomm Technologies, Inc.
     url: https://github.com/quic/aic-operator
   relatedImages:
   - image: ghcr.io/quic/cloud_ai_openshift_operator@sha256:e0b58ba86208a185fd0978077d8e807e747393017e1bef57b72200e47bdd6888

@@ -1,8 +1,8 @@
 FROM scratch
 ARG VERSION=none
 LABEL name="cloud_ai_openshift_operator_bundle" \
-      maintainer="Qualcomm Innovation Center, Inc." \
-      vendor="Qualcomm Innovation Center, Inc." \
+      maintainer="Qualcomm Technologies, Inc." \
+      vendor="Qualcomm Technologies, Inc." \
       version="${VERSION}" \
       release="${VERSION}" \
       summary="Openshift Operator Bundle to orchestrate the Qualcomm AIC Operator" \

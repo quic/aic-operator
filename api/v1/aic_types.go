@@ -15,7 +15,7 @@ limitations under the License.
 
 Based on code from https://github.com/yevgeny-shnaidman/amd-gpu-operator
 
-Copyright (c) 2024 Qualcomm Innovation Center, Inc. All rights reserved.
+Copyright (c) Qualcomm Technologies, Inc. and/or its subsidiaries.
 SPDX-License-Identifier: BSD-3-Clause-Clear
 Not a contribution.
 */

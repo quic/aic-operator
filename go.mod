@@ -1,8 +1,6 @@
 module github.com/quic/aic-operator
 
-go 1.23
-
-toolchain go1.23.0
+go 1.23.9
 
 require (
 	github.com/a8m/envsubst v1.4.2

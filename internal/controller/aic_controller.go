@@ -29,6 +29,7 @@ import (
 
 	kmmv1beta1 "github.com/rh-ecosystem-edge/kernel-module-management/api/v1beta1"
 	nfr "github.com/openshift/cluster-nfd-operator/api/v1alpha1"
+	appsv1 "k8s.io/api/apps/v1"
 	v1 "k8s.io/api/core/v1"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -42,6 +43,7 @@ import (
 	aicv1 "github.com/quic/aic-operator/api/v1"
 	"github.com/quic/aic-operator/internal/kmmmodule"
 	"github.com/quic/aic-operator/internal/nfdrule"
+	"github.com/quic/aic-operator/internal/socreset"
 )
 
 // AICReconciler reconciles an AIC object
@@ -68,8 +70,9 @@ func NewAICReconciler(
 	client client.Client,
 	scheme *runtime.Scheme,
 	kmmHandler kmmmodule.KMMModuleAPI,
-        nfdHandler nfdrule.NFDRuleAPI) *AICReconciler {
-	helper := newAICReconcilerHelper(client, kmmHandler, nfdHandler)
+        nfdHandler nfdrule.NFDRuleAPI,
+        socResetHandler socreset.SOCResetAPI) *AICReconciler {
+        helper := newAICReconcilerHelper(client, kmmHandler, nfdHandler, socResetHandler)
 	return &AICReconciler{
 		Client: client,
 		Scheme: scheme,
@@ -144,6 +147,11 @@ func (r *AICReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.R
 	if err != nil {
 		return res, fmt.Errorf("failed to handle KMM module for AIC %s: %v", req.NamespacedName, err)
 	}
+        logger.Info("start SOC Reset DaemonSet reconciliation")
+        err = r.helper.handleAICSOCReset(ctx, aic)
+        if err != nil {
+                return res, fmt.Errorf("failed to handle SOC Reset DaemonSet creation %s: %v", req.NamespacedName, err)
+        }
 
 	// TODO Metrics
 	// TODO Handle Deletion
@@ -156,6 +164,7 @@ func (r *AICReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&aicv1.AIC{}).
 		Owns(&kmmv1beta1.Module{}).
+		Owns(&appsv1.DaemonSet{}).
 		Complete(r)
 }
 
@@ -166,20 +175,23 @@ type AICReconcilerHelperAPI interface {
 	handleBuildConfigMap(ctx context.Context, devConfig *aicv1.AIC, useInTree bool) error
 	handleKMMModule(ctx context.Context, devConfig *aicv1.AIC, loadedMods aicv1.LoadedModules) error
 	handleAICNFDRule(ctx context.Context, aic *aicv1.AIC) error
+	handleAICSOCReset(ctx context.Context, aic *aicv1.AIC) error
 }
 
 type AICReconcilerHelper struct {
 	client     client.Client
 	kmmHandler kmmmodule.KMMModuleAPI
 	nfdHandler nfdrule.NFDRuleAPI
+	socResetHandler socreset.SOCResetAPI
 }
 
 func newAICReconcilerHelper(client client.Client,
-	kmmHandler kmmmodule.KMMModuleAPI, nfdHandler nfdrule.NFDRuleAPI) AICReconcilerHelperAPI {
-	return &AICReconcilerHelper{
-		client:     client,
-		kmmHandler: kmmHandler,
-		nfdHandler: nfdHandler,
+	kmmHandler kmmmodule.KMMModuleAPI, nfdHandler nfdrule.NFDRuleAPI, socResetHandler socreset.SOCResetAPI) AICReconcilerHelperAPI {
+        return &AICReconcilerHelper{
+                client:     client,
+                kmmHandler: kmmHandler,
+                nfdHandler: nfdHandler,
+                socResetHandler: socResetHandler,
 	}
 }
 func (aicrh *AICReconcilerHelper) getRequestedAIC(ctx context.Context, namespacedName types.NamespacedName) (*aicv1.AIC, error) {
@@ -204,11 +216,32 @@ func (aicrh *AICReconcilerHelper) setFinalizer(ctx context.Context, aic *aicv1.A
 func (aicrh *AICReconcilerHelper) finalizeAIC(ctx context.Context, aic *aicv1.AIC) error {
 	var err error
 	logger := log.FromContext(ctx)
-
-	mod := kmmv1beta1.Module{}
-	deleted := make([]error, 0, 2)
-	faults := make([]error, 0, 2)
+	deleted := make([]error, 0, 3)
+	faults := make([]error, 0, 3)
+        //Delete SocReset DS owned by AIC
+	socresetDs := appsv1.DaemonSet{}
 	nsName := types.NamespacedName{
+		Namespace: aic.Namespace,
+		Name:      aic.Name + "-qaic-socreset-ds",
+	}
+
+	err = aicrh.client.Get(ctx, nsName, &socresetDs)
+	if err != nil {
+		if k8serrors.IsNotFound(err) {
+			deleted = append(deleted, err)
+		} else {
+			faults = append(faults, fmt.Errorf("failed to get the requested qaic-socreset-ds daemonset %s: %v", nsName, err))
+		}
+	} else {
+		logger.Info("deleting qaic-socreset daemonset", "daemonset", nsName)
+		if err = aicrh.client.Delete(ctx, &socresetDs); client.IgnoreNotFound(err) != nil {
+			faults = append(faults, err)
+		}
+	}
+
+        //Delete KMM.Module owned by AIC.
+	mod := kmmv1beta1.Module{}
+	nsName = types.NamespacedName{
 		Namespace: aic.Namespace,
 		Name:      aic.Name,
 	}
@@ -248,9 +281,9 @@ func (aicrh *AICReconcilerHelper) finalizeAIC(ctx context.Context, aic *aicv1.AI
 	err = errors.Join(faults...)
 
 	//remove finalizer only if no faults occurred during removal
-	//len==2, because 1 for Module and 1 for NFR.
-	if len(deleted) == 2 && err == nil {
-		logger.Info("Module & NFR already deleted, removing finalizer", "Module, NFR", aic.Name)
+	//len==3, because 1 for socresetDS, 1 for Module and 1 for NFR.
+	if len(deleted) == 3 && err == nil {
+		logger.Info("Soc Reset DS, Module & NFR already deleted, removing finalizer", "DS, Module, NFR", aic.Name)
 		aicCopy := aic.DeepCopy()
 		controllerutil.RemoveFinalizer(aic, aicFinalizer)
 		return aicrh.client.Patch(ctx, aic, client.MergeFrom(aicCopy))
@@ -310,15 +343,32 @@ func (aicrh *AICReconcilerHelper) handleAICNFDRule(ctx context.Context, aic *aic
 		},
 	}
         logger := log.FromContext(ctx)
-         opRes, err := controllerutil.CreateOrPatch(ctx, aicrh.client, nfrObj, func() error {
+        opRes, err := controllerutil.CreateOrPatch(ctx, aicrh.client, nfrObj, func() error {
                 return aicrh.nfdHandler.SetNFRasDesired(nfrObj, aic)
         })
-         if err != nil {
-                logger.Info("Reconciled NFR", "name", nfrObj.Name, "result", opRes)
-                 return err
-         }
+        if err != nil {
+               logger.Info("Reconciled NFR", "name", nfrObj.Name, "result", opRes)
+               return err
+        }
         return nil
 
+}
+
+func (aicrh *AICReconcilerHelper) handleAICSOCReset(ctx context.Context, aic *aicv1.AIC) error {
+       socresetdsObj := &appsv1.DaemonSet{
+                      ObjectMeta: metav1.ObjectMeta{
+                              Namespace: aic.Namespace,
+                              Name:      aic.Name + "-qaic-socreset-ds",
+                      },
+       }
+       logger := log.FromContext(ctx)
+       opRes, err := controllerutil.CreateOrPatch(ctx, aicrh.client, socresetdsObj, func() error {
+               return aicrh.socResetHandler.SetSOCResetDSasDesired(socresetdsObj, aic)
+       })
+       if err == nil {
+               logger.Info("Reconciled SOC Reset DS ", "name", socresetdsObj, "result", opRes)
+       }
+       return err
 }
 func getDockerfileCMName(aic *aicv1.AIC, useInTree bool) string {
 	if useInTree {

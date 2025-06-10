@@ -16,6 +16,7 @@ COPY api/ api/
 COPY internal/controller/ internal/controller/
 COPY internal/kmmmodule/ internal/kmmmodule/
 COPY internal/nfdrule/ internal/nfdrule/
+COPY internal/socreset/ internal/socreset/
 
 # Build
 # the GOARCH has not a default value to allow the binary be built according to the host where the command

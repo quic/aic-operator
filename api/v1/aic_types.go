@@ -37,24 +37,25 @@ type AICSpec struct {
 	// Important: Run "make" to regenerate code after modifying this file
 
 	// defines image that includes driver source and firmware
-	// +optional
-	SourceImage string `json:"sourceImage,omitempty"`
+	SourceImage string `json:"sourceImage"`
 
 	// defines image that includes drivers and firmware blobs
-	// +optional
-	DriversImage string `json:"driversImage,omitempty"`
+	DriversImage string `json:"driversImage"`
 
 	// version of the drivers source code, can be used as part of image of dockerfile source image
-	// +optional
-	DriversVersion string `json:"driversVersion,omitempty"`
+	DriversVersion string `json:"driversVersion"`
 
 	// device plugin image
-	// +optional
-	DevicePluginImage string `json:"devicePluginImage,omitempty"`
+	DevicePluginImage string `json:"devicePluginImage"`
 
 	// version of the device plugin image
-	// +optional
-	DevPluginVersion string `json:"devPluginVersion,omitempty"`
+	DevPluginVersion string `json:"devPluginVersion"`
+
+	// SOC Reset image
+        SocResetImage string `json:"socResetImage"`
+
+        // version of the SOC Reset image
+        SocResetVersion string `json:"socResetVersion"`
 
 	// pull secrets used for pull/setting images used by operator
 	// +optional
@@ -69,10 +70,20 @@ type AICSpec struct {
 	UseInTreeModules bool `json:"useInTreeModules,omitempty"`
 }
 
+type State string
+
+const (
+	Ignored        State = "Ignored"
+	Operational    State = "Ready"
+	NotOperational State = "NotReady"
+)
+
 // AICStatus defines the observed state of AIC
 type AICStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "make" to regenerate code after modifying this file
+	// +kubebuilder:validation:Enum=Ignored;Ready;NotReady
+	State State `json:"state"`
 }
 
 //+kubebuilder:object:root=true

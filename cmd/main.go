@@ -44,6 +44,7 @@ import (
 	"github.com/quic/aic-operator/internal/controller"
 	"github.com/quic/aic-operator/internal/kmmmodule"
 	"github.com/quic/aic-operator/internal/nfdrule"
+	"github.com/quic/aic-operator/internal/socreset"
 	kmmv1beta1 "github.com/rh-ecosystem-edge/kernel-module-management/api/v1beta1"
 	nfr "github.com/openshift/cluster-nfd-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
@@ -136,10 +137,11 @@ func main() {
 	client := mgr.GetClient()
 	kmmHandler := kmmmodule.NewKMMModule(client, scheme)
 	nfdHandler := nfdrule.NewNFDRule(client, scheme)
+	socresetHandler := socreset.NewSOCReset(client, scheme)
 	aicr := controller.NewAICReconciler(
 		client,
 		mgr.GetScheme(),
-		kmmHandler, nfdHandler)
+		kmmHandler, nfdHandler, socresetHandler)
 
 	if err = aicr.SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AIC")

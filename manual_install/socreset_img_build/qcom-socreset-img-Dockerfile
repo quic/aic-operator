@@ -1,0 +1,55 @@
+FROM registry.access.redhat.com/ubi9/ubi:9.5
+ARG VERSION=none
+ARG ARCHITECTURE=x86_64
+
+LABEL name="cloud_ai_openshift_operator" \
+      maintainer="Qualcomm Innovation Center, Inc." \
+      vendor="Qualcomm Innovation Center, Inc." \
+      version="${VERSION}" \
+      release="${VERSION}" \
+      summary="Openshift Operator to orchestrate the Qualcomm AIC containers" \
+      description="The Openshift Operator enables the Qualcomm® Cloud AI series of hardware \
+on OpenShift clusters by automating the configuration and installation of their \
+Linux device drivers and its Kubernetes Device Plugin."
+
+RUN yum update -y && yum install -y unzip zip pciutils sudo libxcrypt-compat
+COPY qaic-socreset.sh /opt/qti-aic/scripts/
+
+# Install platform sdk
+# Install in place from temp directory (don't copy SDK zip into image)
+RUN --mount=type=bind,src=.,dst=/mnt \
+    cd /tmp/ && \
+    unzip -q /mnt/qaic-platform-sdk-*.zip && \
+    cd *platform* && \
+    cd $(uname -m)/rpm && \
+    ./install.sh --container --skip_depends --no_soc_reset && \
+    cd /tmp/ && rm -rf *platform*
+
+# Platform ENV variables
+ENV QAIC_EXAMPLES="/opt/qti-aic/examples"
+ENV QAIC_LIB="/opt/qti-aic/dev/lib/${ARCHITECTURE}/libQAic.so"
+ENV LD_LIBRARY_PATH="/opt/qti-aic/dev/lib/${ARCHITECTURE}"
+ENV PATH="${PATH}:/opt/qti-aic/tools:/opt/qti-aic/exec"
+RUN ldconfig && rm -rf /tmp/*
+WORKDIR /root
+
+RUN mkdir /licenses
+
+# Include license and location information
+LABEL org.opencontainers.image.source=https://github.com/quic/cloud-ai-containers
+COPY --chmod=755 motd.sh /etc
+COPY CONTAINER_LICENSE.txt /usr/share/doc
+RUN ln -s /usr/share/doc/CONTAINER_LICENSE.txt / && \
+    ln -s /usr/share/doc/CONTAINER_LICENSE.txt /root && \
+    ln -s /usr/share/doc/CONTAINER_LICENSE.txt /licenses && \
+# Different systems use different system wide non-login shell config files
+    if [ -e /etc/bash.bashrc ]; then \
+        echo '[ ! -z "$TERM" -a -r /etc/motd.sh ] && /etc/motd.sh' >> /etc/bash.bashrc ; \
+    elif [ -e /etc/bashrc ]; then \
+        echo '[ ! -z "$TERM" -a -r /etc/motd.sh ] && /etc/motd.sh' >> /etc/bashrc ; \
+    else \
+        echo "Unable to find system bashrc" ; \
+        exit 1 ; \
+    fi
+#set user to non-root. UBI images define 65534 as user "nobody"
+USER 65534:65534

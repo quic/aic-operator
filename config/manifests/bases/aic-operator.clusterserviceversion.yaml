@@ -33,10 +33,6 @@ spec:
       kind: AIC
       name: aics.aic.quicinc.com
       version: v1
-    required:
-    - kind: Module
-      name: modules.kmm.sigs.x-k8s.io
-      version: v1beta1
   description: The Openshift Operator enables the Qualcomm® Cloud AI series of hardware
     on OpenShift clusters by automating the configuration and installation of their
     Linux device drivers and its Kubernetes Device Plugin.

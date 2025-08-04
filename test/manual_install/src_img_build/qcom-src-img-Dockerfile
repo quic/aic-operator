@@ -1,3 +1,0 @@
-FROM redhat/ubi9-micro
-ARG SRC_ROOT_DIR
-COPY ${SRC_ROOT_DIR} /

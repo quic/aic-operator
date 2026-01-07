@@ -25,13 +25,17 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
+	"runtime"
+	"time"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
-	"k8s.io/apimachinery/pkg/runtime"
+	k8sruntime "k8s.io/apimachinery/pkg/runtime"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	clientgoscheme "k8s.io/client-go/kubernetes/scheme"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -40,19 +44,25 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
+	nfr "github.com/openshift/cluster-nfd-operator/api/v1alpha1"
 	aicv1 "github.com/quic/aic-operator/api/v1"
 	"github.com/quic/aic-operator/internal/controller"
 	"github.com/quic/aic-operator/internal/kmmmodule"
 	"github.com/quic/aic-operator/internal/nfdrule"
 	"github.com/quic/aic-operator/internal/socreset"
 	kmmv1beta1 "github.com/rh-ecosystem-edge/kernel-module-management/api/v1beta1"
-	nfr "github.com/openshift/cluster-nfd-operator/api/v1alpha1"
 	//+kubebuilder:scaffold:imports
 )
 
 var (
-	scheme   = runtime.NewScheme()
+	scheme   = k8sruntime.NewScheme()
 	setupLog = ctrl.Log.WithName("setup")
+	version  = "v0.0.0-dev" // Default version if not set at build time
+
+	// LeaderElectionID is a unique identifier used for leader election.
+	// It combines a unique prefix with the operator's domain.
+	// This must remain consistent across operator versions to maintain leadership during upgrades.
+	leaderElectionID = "aic-operator-lock.quicinc.com"
 )
 
 func init() {
@@ -66,18 +76,22 @@ func init() {
 func main() {
 	var metricsAddr string
 	var enableLeaderElection bool
+	var shutdownTimeout time.Duration
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var reconciliationInterval time.Duration
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8081", "The address the probe endpoint binds to.")
-	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
+	flag.BoolVar(&enableLeaderElection, "leader-elect", true,
 		"Enable leader election for controller manager. "+
 			"Enabling this will ensure there is only one active controller manager.")
 	flag.BoolVar(&secureMetrics, "metrics-secure", false,
 		"If set the metrics endpoint is served securely")
 	flag.BoolVar(&enableHTTP2, "enable-http2", false,
 		"If set, HTTP/2 will be enabled for the metrics and webhook servers")
+	flag.DurationVar(&shutdownTimeout, "shutdown-timeout", 30*time.Second, "Timeout for graceful shutdown")
+	flag.DurationVar(&reconciliationInterval, "reconciliation-interval", 1*time.Minute, "Interval at which controllers reconcile resources")
 	opts := zap.Options{
 		Development: true,
 	}
@@ -116,7 +130,7 @@ func main() {
 		WebhookServer:          webhookServer,
 		HealthProbeBindAddress: probeAddr,
 		LeaderElection:         enableLeaderElection,
-		LeaderElectionID:       "6d6bdd1c.quicinc.com",
+		LeaderElectionID:       leaderElectionID,
 		// LeaderElectionReleaseOnCancel defines if the leader should step down voluntarily
 		// when the Manager ends. This requires the binary to immediately end when the
 		// Manager is stopped, otherwise, this setting is unsafe. Setting this significantly
@@ -127,7 +141,7 @@ func main() {
 		// the manager stops, so would be fine to enable this option. However,
 		// if you are doing or is intended to do any operation such as perform cleanups
 		// after the manager stops then its usage might be unsafe.
-		// LeaderElectionReleaseOnCancel: true,
+		LeaderElectionReleaseOnCancel: true,
 	})
 	if err != nil {
 		setupLog.Error(err, "unable to start manager")
@@ -143,7 +157,7 @@ func main() {
 		mgr.GetScheme(),
 		kmmHandler, nfdHandler, socresetHandler)
 
-	if err = aicr.SetupWithManager(mgr); err != nil {
+	if err = aicr.SetupWithManager(mgr, reconciliationInterval); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "AIC")
 		os.Exit(1)
 	}
@@ -158,8 +172,15 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
-	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
+	ctx := ctrl.SetupSignalHandler()
+	setupLog.Info("starting manager",
+		"AIC_Operator_Controller_Version", version,
+		"goVersion", runtime.Version(),
+		"platform", fmt.Sprintf("%s/%s", runtime.GOOS, runtime.GOARCH),
+		"leaderElection", enableLeaderElection,
+		"metricsAddr", metricsAddr,
+		"probeAddr", probeAddr)
+	if err := mgr.Start(ctx); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}

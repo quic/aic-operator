@@ -2,6 +2,7 @@
 FROM registry.access.redhat.com/ubi9/go-toolset:1.23.9 AS builder
 ARG TARGETOS
 ARG TARGETARCH
+ARG VERSION=none
 
 # Copy the Go Modules manifests
 COPY go.mod go.mod
@@ -23,11 +24,12 @@ COPY internal/socreset/ internal/socreset/
 # was called. For example, if we call make docker-build in a local env which has the Apple Silicon M1 SO
 # the docker BUILDPLATFORM arg will be linux/arm64 when for Apple x86 it will be linux/amd64. Therefore,
 # by leaving it empty we can ensure that the container and binary shipped on it will have the same platform.
-RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -a -o manager cmd/main.go
+RUN CGO_ENABLED=0 GOOS=${TARGETOS:-linux} GOARCH=${TARGETARCH} go build -ldflags "-X main.version=v${VERSION}" -a -o manager cmd/main.go
 
 FROM registry.access.redhat.com/ubi9/ubi-minimal
 ARG VERSION=none
-RUN microdnf -y update
+RUN --mount=type=cache,sharing=locked,target=/var/cache/dnf \
+    microdnf -y update
 WORKDIR /
 COPY --from=builder /opt/app-root/src/manager .
 RUN mkdir -p /opt/aic-manifests

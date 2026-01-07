@@ -37,11 +37,8 @@ import (
 )
 
 const (
-	kubeletDevicePluginsVolumeName   = "kubelet-device-plugins"
-	kubeletDevicePluginsPath         = "/var/lib/kubelet/device-plugins"
-	nodeVarLibFirmwarePath           = "/var/lib/firmware"
-	aicDriverModuleName              = "qaic"
-	imageFirmwarePath                = "/firmware"
+	aicDriverModuleName = "qaic"
+	imageFirmwarePath   = "/firmware"
 )
 
 var (
@@ -111,11 +108,10 @@ func setKMMModuleLoader(mod *kmmv1beta1.Module, aic *aicv1.AIC, loadedMods aicv1
 	if sourceImage == "" {
 		return fmt.Errorf("sourceImage in AIC spec is not set, exiting")
 	}
-	replaced, err := parser.Parse(sourceImage)
+	sourceImage, err := parser.Parse(sourceImage)
 	if err != nil {
 		return fmt.Errorf("failed to replace %q, %w", sourceImage, err)
 	}
-	sourceImage = replaced
 
 	driversImage := aic.Spec.DriversImage
 	if driversImage == "" {
@@ -125,10 +121,22 @@ func setKMMModuleLoader(mod *kmmv1beta1.Module, aic *aicv1.AIC, loadedMods aicv1
 		driversImage = driversImage + "-inTree"
 	}
 
+	// ModulesLoadingOrder defines the dependency between kernel modules loading.
+	// The list order should be: upmost module, then the module it depends on and so on.
+	// Example: if moduleA depends on first loading moduleB, and moduleB depends on first loading moduleC
+	// the entry should look:
+	// ModulesLoadingOrder:
+	//    - moduleA
+	//    - moduleB
+	//    - moduleC
+	// In order to load all 3 modules, moduleA shoud be defined in the ModuleName parameter of this struct
+	modulesLoadingOrder := make([]string, 0)
+	modulesLoadingOrder = append(modulesLoadingOrder, "qaic", "qrtr-mhi", "switchtec", "mhi")
 	mod.Spec.ModuleLoader.Container = kmmv1beta1.ModuleLoaderContainerSpec{
 		Modprobe: kmmv1beta1.ModprobeSpec{
-			ModuleName:   aicDriverModuleName,
-			FirmwarePath: imageFirmwarePath,
+			ModuleName:          aicDriverModuleName,
+			FirmwarePath:        imageFirmwarePath,
+			ModulesLoadingOrder: modulesLoadingOrder,
 		},
 		KernelMappings: []kmmv1beta1.KernelMapping{
 			{
@@ -156,17 +164,13 @@ func setKMMModuleLoader(mod *kmmv1beta1.Module, aic *aicv1.AIC, loadedMods aicv1
 	modulesToRemove := make([]string, 0)
 	switch loadedMods {
 	case aicv1.Qaic_loaded:
-		modulesToRemove = append(modulesToRemove, "qaic")
-		fallthrough
+		// Use hyphen (qrtr-mhi) to match the actual .ko filename
+		modulesToRemove = append(modulesToRemove, "qaic", "qrtr-mhi", "switchtec", "mhi")
 	case aicv1.Mhi_loaded:
-		modulesToRemove = append(modulesToRemove, "mhi")
-		fallthrough
-	case aicv1.None_loaded:
-		fallthrough
-	default:
-		if len(modulesToRemove) != 0 || !useInTree {
-			mod.Spec.ModuleLoader.Container.InTreeModulesToRemove = modulesToRemove
-		}
+		modulesToRemove = append(modulesToRemove, "qrtr-mhi", "mhi")
+	}
+	if len(modulesToRemove) != 0 || !useInTree {
+		mod.Spec.ModuleLoader.Container.InTreeModulesToRemove = modulesToRemove
 	}
 
 	mod.Spec.ModuleLoader.ServiceAccountName = "aic-operator-kmm-module-loader"
@@ -178,7 +182,7 @@ func setKMMModuleLoader(mod *kmmv1beta1.Module, aic *aicv1.AIC, loadedMods aicv1
 func setKMMDevicePlugin(mod *kmmv1beta1.Module, aic *aicv1.AIC) error {
 	devPluginVersion := aic.Spec.DevPluginVersion
 	if devPluginVersion == "" {
-               return fmt.Errorf("devPluginVersion not set in AIC Spec")
+		return fmt.Errorf("devPluginVersion not set in AIC Spec")
 	}
 
 	modVars := []string{
@@ -187,15 +191,14 @@ func setKMMDevicePlugin(mod *kmmv1beta1.Module, aic *aicv1.AIC) error {
 	parser := parse.New("mod_replace", modVars, &parse.Restrictions{})
 	devicePluginImage := aic.Spec.DevicePluginImage
 	if devicePluginImage == "" {
-               return fmt.Errorf("devivePluginImage not set in AIC Spec")
+		return fmt.Errorf("devivePluginImage not set in AIC Spec")
 	} else {
-               devicePluginImage = devicePluginImage + ":" + devPluginVersion
+		devicePluginImage = devicePluginImage + ":" + devPluginVersion
 	}
-	replaced, err := parser.Parse(devicePluginImage)
+	devicePluginImage, err := parser.Parse(devicePluginImage)
 	if err != nil {
 		return fmt.Errorf("failed to replace %q, %w", devicePluginImage, err)
 	}
-	devicePluginImage = replaced
 
 	hostPathDirectory := v1.HostPathDirectory
 	mod.Spec.DevicePlugin = &kmmv1beta1.DevicePluginSpec{

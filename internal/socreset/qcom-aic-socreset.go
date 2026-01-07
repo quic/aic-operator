@@ -12,14 +12,13 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/runtime"
+	"k8s.io/utils/ptr"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"k8s.io/utils/pointer"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 
 	aicv1 "github.com/quic/aic-operator/api/v1"
 	appsv1 "k8s.io/api/apps/v1"
 )
-
 
 type SOCResetAPI interface {
 	SetSOCResetDSasDesired(socresetdsObj *appsv1.DaemonSet, aic *aicv1.AIC) error
@@ -72,7 +71,7 @@ func (socreset_struct *socReset) SetSOCResetDSasDesired(dsObj *appsv1.DaemonSet,
 	//Below labels ensure that socreset Pod is created on nodes where qaic devices are present and boot-up is complete.
 	devicepluginReady := fmt.Sprintf("kmm.node.kubernetes.io/%s.%s.device-plugin-ready", aic.Namespace, aic.Name)
 	nodeSelector := map[string]string{"qualcomm.com/qaic": "true",
-	                                  devicepluginReady: ""}
+		devicepluginReady: ""}
 	dsObj.Spec = appsv1.DaemonSetSpec{
 		Selector: &metav1.LabelSelector{MatchLabels: matchLabels},
 		Template: v1.PodTemplateSpec{
@@ -82,13 +81,13 @@ func (socreset_struct *socReset) SetSOCResetDSasDesired(dsObj *appsv1.DaemonSet,
 			Spec: v1.PodSpec{
 				Containers: []v1.Container{
 					{
-						Command: []string{"/bin/bash", "-c", "/opt/qti-aic/scripts/qaic-socreset.sh"},
+						Command:         []string{"/bin/bash", "-c", "/opt/qti-aic/scripts/qaic-socreset.sh"},
 						Name:            "qaic-socreset-container",
 						Image:           aic.Spec.SocResetImage + ":" + aic.Spec.SocResetVersion,
 						ImagePullPolicy: v1.PullAlways,
-						SecurityContext: &v1.SecurityContext{Privileged: pointer.Bool(true)},
+						SecurityContext: &v1.SecurityContext{Privileged: ptr.To(true)},
 						VolumeMounts:    containerVolumeMounts,
-						Lifecycle: &lifecycle,
+						Lifecycle:       &lifecycle,
 					},
 				},
 				NodeSelector:       nodeSelector,

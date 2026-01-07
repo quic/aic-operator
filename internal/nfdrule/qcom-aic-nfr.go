@@ -6,20 +6,22 @@ SPDX-License-Identifier: BSD-3-Clause-Clear.
 package nfdrule
 
 import (
+	"context"
 	_ "embed"
 	"fmt"
-	"io/ioutil"
+	"os"
 	"regexp"
 	"strings"
 
 	"k8s.io/apimachinery/pkg/runtime"
-	"sigs.k8s.io/controller-runtime/pkg/client"
-	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/apimachinery/pkg/runtime/serializer/json"
+	"k8s.io/client-go/kubernetes/scheme"
+	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
+	"sigs.k8s.io/controller-runtime/pkg/log"
 
-	aicv1 "github.com/quic/aic-operator/api/v1"
 	nfr "github.com/openshift/cluster-nfd-operator/api/v1alpha1"
+	aicv1 "github.com/quic/aic-operator/api/v1"
 )
 
 const (
@@ -27,7 +29,7 @@ const (
 )
 
 type NFDRuleAPI interface {
-	SetNFRasDesired(nfrObj *nfr.NodeFeatureRule, aic *aicv1.AIC) error
+	SetNFRasDesired(ctx context.Context, nfrObj *nfr.NodeFeatureRule, aic *aicv1.AIC) error
 }
 
 type nfdRule struct {
@@ -42,23 +44,24 @@ func NewNFDRule(client client.Client, scheme *runtime.Scheme) NFDRuleAPI {
 	}
 }
 
-func (nfrstruct *nfdRule) SetNFRasDesired(nfrObj *nfr.NodeFeatureRule, aic *aicv1.AIC) error {
-	err := parseNFR_Manifest(nfrObj, aic)
+func (nfrstruct *nfdRule) SetNFRasDesired(ctx context.Context, nfrObj *nfr.NodeFeatureRule, aic *aicv1.AIC) error {
+	err := parseNFR_Manifest(ctx, nfrObj, aic)
 	if err != nil {
 		return fmt.Errorf("failed to set NodeFeatureRule: %v", err)
 	}
 	return controllerutil.SetControllerReference(aic, nfrObj, nfrstruct.scheme)
 }
 
-func parseNFR_Manifest(nfrObj *nfr.NodeFeatureRule, aic *aicv1.AIC) error {
-	raw_manifest, err := ioutil.ReadFile(qcom_aic_nfrmanifest)
-        if err != nil {
-                return fmt.Errorf("Error encountered while reading NFR manifest %s : %v", qcom_aic_nfrmanifest, err)
-        }
+func parseNFR_Manifest(ctx context.Context, nfrObj *nfr.NodeFeatureRule, aic *aicv1.AIC) error {
+	raw_manifest, err := os.ReadFile(qcom_aic_nfrmanifest)
+	logger := log.FromContext(ctx)
+	if err != nil {
+		return fmt.Errorf("Error encountered while reading NFR manifest %s : %v", qcom_aic_nfrmanifest, err)
+	}
 	s := json.NewYAMLSerializer(json.DefaultMetaFactory, scheme.Scheme, scheme.Scheme)
 	regex, _ := regexp.Compile(`\b(\w*kind:\w*)\B.*\b`)
 	kind := strings.TrimSpace(strings.Split(regex.FindString(string(raw_manifest)), ":")[1])
-	fmt.Println("Resource identified kind:", kind)
+	logger.Info("Resource identified kind", "kind", kind)
 	_, _, err = s.Decode(raw_manifest, nil, nfrObj)
 	if err != nil {
 		return fmt.Errorf("Error encountered while decoding %s resource in manifest %s: %v", "NodeFeatureRule", qcom_aic_nfrmanifest, err)

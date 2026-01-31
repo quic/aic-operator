@@ -46,8 +46,8 @@ Linux device drivers and its Kubernetes Device Plugin."
 RUN mkdir /licenses
 # Include license and location information
 LABEL org.opencontainers.image.source https://github.com/quic/cloud-ai-containers
-COPY --chmod=755 manual_install/src_img_build/motd.sh /etc
-COPY manual_install/src_img_build/CONTAINER_LICENSE.txt /usr/share/doc
+COPY --chmod=755 operands/src_img_build/motd.sh /etc
+COPY operands/src_img_build/CONTAINER_LICENSE.txt /usr/share/doc
 RUN ln -s /usr/share/doc/CONTAINER_LICENSE.txt / && \
     ln -s /usr/share/doc/CONTAINER_LICENSE.txt /root && \
     ln -s /usr/share/doc/CONTAINER_LICENSE.txt /licenses && \

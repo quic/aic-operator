@@ -86,6 +86,7 @@ case ${BUILD_TYPE} in
 ;;
 esac
 cp -r ./lib/firmware/* $SRC_ROOTDIR/firmware
+cp -r ./opt/qti-aic/firmware/fw2_swe.json $SRC_ROOTDIR/firmware
 cp -r ./usr/src/qaic-*/* $SRC_ROOTDIR/src
 popd &> /dev/null
 rm -rf $TMP_DIR

@@ -40,6 +40,13 @@ func (socreset_struct *socReset) SetSOCResetDSasDesired(dsObj *appsv1.DaemonSet,
 	if dsObj == nil {
 		return fmt.Errorf("daemon set is not initialized, zero pointer")
 	}
+	containerPorts := []v1.ContainerPort{
+		{
+			Name:          "qmonitor-grpc",
+			ContainerPort: 62472,
+			Protocol:      v1.ProtocolTCP,
+		},
+	}
 	containerVolumeMounts := []v1.VolumeMount{
 		{
 			Name:      "socreset-state",
@@ -60,7 +67,15 @@ func (socreset_struct *socReset) SetSOCResetDSasDesired(dsObj *appsv1.DaemonSet,
 	}
 	lifecyclehandler := v1.LifecycleHandler{
 		Exec: &v1.ExecAction{
-			Command: []string{"/bin/bash", "-c", "rm -f /var/lib/qaic_soc_reset_done"},
+			Command: []string{"/bin/bash", "-c", `
+				# Kill QMonitor if running
+				killall -TERM qaic-monitor-grpc-server || true
+				# Wait briefly for graceful shutdown
+				sleep 2
+				# Force kill if still running
+				killall -KILL qaic-monitor-grpc-server || true
+				# Remove marker file
+				rm -f /var/lib/qaic_soc_reset_done`},
 		},
 	}
 	lifecycle := v1.Lifecycle{
@@ -86,6 +101,7 @@ func (socreset_struct *socReset) SetSOCResetDSasDesired(dsObj *appsv1.DaemonSet,
 						Image:           aic.Spec.SocResetImage + ":" + aic.Spec.SocResetVersion,
 						ImagePullPolicy: v1.PullAlways,
 						SecurityContext: &v1.SecurityContext{Privileged: ptr.To(true)},
+						Ports:           containerPorts,
 						VolumeMounts:    containerVolumeMounts,
 						Lifecycle:       &lifecycle,
 					},
